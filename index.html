@@ -302,24 +302,20 @@ function loadFromGAS(){
   });
 }
 
-function saveToGAS(){
-  return new Promise((resolve)=>{
-    if(!GAS_URL){resolve();return;}
-    const cbName='_gasSaveCb'+Date.now();
-    const script=document.createElement('script');
-    const timer=setTimeout(()=>{
-      cleanup();console.warn('GAS保存タイムアウト');resolve();
-    },15000);
-    function cleanup(){
-      clearTimeout(timer);delete window[cbName];
-      if(script.parentNode)script.parentNode.removeChild(script);
-    }
-    window[cbName]=function(data){cleanup();resolve();};
-    // データをエンコードして送信
-    const payload=encodeURIComponent(JSON.stringify({residents,homes}));
-    script.src=GAS_URL+'?action=save&callback='+cbName+'&data='+payload;
-    document.head.appendChild(script);
-  });
+async function saveToGAS(){
+  if(!GAS_URL)return;
+  try{
+    // no-corsモードでPOST送信（レスポンスは受け取れないがデータは届く）
+    await fetch(GAS_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({action:'save',residents,homes})
+    });
+    console.log('GAS保存送信完了');
+  }catch(e){
+    console.warn('GAS保存エラー:',e);
+  }
 }
 
 function normalizeMD(v){return v&&parseInt(v)?String(parseInt(v)).padStart(2,'0'):v;}
