@@ -718,6 +718,16 @@ function periodInputs(prefix,r){
     <div class="field"><label>日</label><select id="f_${prefix}_end_d">${dO(prefix+'_end_d')}</select></div>
   </div>`;
 }
+function toggleSelfplan(){
+  const inp=document.getElementById('f_selfplan');
+  const icon=document.getElementById('selfplan-check-icon');
+  if(!inp||!icon)return;
+  const now=inp.value==='1';
+  inp.value=now?'':'1';
+  icon.style.background=now?'#fff':'#1F3864';
+  icon.style.borderColor=now?'#bbb':'#1F3864';
+  icon.innerHTML=now?'':'<i class="ti ti-check" style="font-size:12px;color:#fff"></i>';
+}
 function buildForm(r){
   const v=(k)=>r&&r[k]?r[k]:'';
   const levelOpts=['','1','2','3','4','5','6'].map(x=>`<option value="${x}">${x?'区分'+x:'—'}</option>`).join('');
