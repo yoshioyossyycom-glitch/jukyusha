@@ -115,6 +115,14 @@ h1{font-size:20px;font-weight:500}
 .mon-selected-preview .mon-pill{background:#E6F1FB;color:#185FA5;padding:2px 8px;border-radius:10px;font-size:11px}
 .mon-add-row{display:flex;justify-content:flex-start;margin-top:4px}
 .monitoring-display{font-size:14px;color:#1a1a1a;font-weight:500;line-height:2}
+/* 設定ドロップダウン */
+.dropdown{position:relative;display:inline-block}
+.dropdown-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:180px;z-index:50;overflow:hidden}
+.dropdown-menu.show{display:block}
+.dropdown-item{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:#1a1a1a;cursor:pointer;transition:background 0.12s;white-space:nowrap;border:none;background:none;width:100%;text-align:left}
+.dropdown-item:hover{background:#f4f5f7}
+.dropdown-item i{font-size:15px;color:#555;flex-shrink:0}
+.dropdown-divider{height:1px;background:#eee;margin:4px 0}
 
 /* 未保存バナー */
 .unsaved-bar{
@@ -142,15 +150,6 @@ h1{font-size:20px;font-weight:500}
 </head>
 <body>
 
-<!-- ローディング画面 -->
-<div id="loading-screen" style="position:fixed;inset:0;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px">
-  <div style="font-size:20px;font-weight:500;color:#1F3864"><i class="ti ti-id-badge" style="font-size:28px;vertical-align:-4px;margin-right:8px"></i>受給者証 管理システム</div>
-  <div style="font-size:13px;color:#888" id="loading-msg">データを読み込んでいます...</div>
-  <div style="width:200px;height:4px;background:#e0e0e0;border-radius:2px;overflow:hidden">
-    <div id="loading-bar" style="height:100%;background:#1F3864;border-radius:2px;width:0%;transition:width 0.4s"></div>
-  </div>
-</div>
-
 <div class="wrap">
   <div class="header">
     <div>
@@ -158,9 +157,17 @@ h1{font-size:20px;font-weight:500}
       <div class="header-sub">障害福祉サービス受給者証の有効期限を一元管理</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" onclick="openHomeModal()"><i class="ti ti-home"></i>ホーム管理</button>
-      <button class="btn btn-primary" id="save-btn" onclick="saveData()" style="display:none"><i class="ti ti-device-floppy"></i>保存</button>
       <button class="btn btn-primary" onclick="openAddModal()"><i class="ti ti-plus"></i>新規登録</button>
+      <div class="dropdown" id="settings-dropdown">
+        <button class="btn" onclick="toggleDropdown()" id="settings-btn"><i class="ti ti-settings"></i>設定</button>
+        <div class="dropdown-menu" id="dropdown-menu">
+          <button class="dropdown-item" onclick="openHomeModal();closeDropdown()"><i class="ti ti-home"></i>ホーム管理</button>
+          <div class="dropdown-divider"></div>
+          <button class="dropdown-item" onclick="exportData();closeDropdown()"><i class="ti ti-upload"></i>エクスポート</button>
+          <label class="dropdown-item" style="cursor:pointer"><i class="ti ti-download"></i>インポート<input type="file" accept=".json" onchange="importData(event)" style="display:none"></label>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="save-btn" onclick="saveData()" style="display:none"><i class="ti ti-device-floppy"></i>保存</button>
     </div>
   </div>
   <div id="alerts-area"></div>
@@ -256,67 +263,6 @@ let residents=[],homes=[],monEntries=[],kunrenSets=[];
 let currentSort='home',editingId=null,openDrawerId=null;
 let hasUnsaved=false;
 
-// =============================================
-// ★ GAS WebApp URL をここに貼り付けてください ★
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxM1XsM9NcVinuk6XynA35DJy9cffnQwfV-E2voLbsCWlsi8TEYImq_Hxh99ogGeMDv/exec';
-// =============================================
-
-// ── GAS連携 ──
-function loadFromGAS(){
-  return new Promise((resolve)=>{
-    document.getElementById('loading-bar').style.width='30%';
-    if(!GAS_URL){
-      document.getElementById('loading-msg').textContent='ローカルデータを読み込んでいます...';
-      document.getElementById('loading-bar').style.width='100%';
-      setTimeout(()=>{document.getElementById('loading-screen').style.display='none';resolve();},400);
-      return;
-    }
-    document.getElementById('loading-msg').textContent='サーバーからデータを取得中...';
-    // JSONP方式でCORSを回避
-    const cbName='_gasCb'+Date.now();
-    const script=document.createElement('script');
-    const timer=setTimeout(()=>{
-      cleanup();
-      console.warn('GASタイムアウト、キャッシュ使用');
-      document.getElementById('loading-msg').textContent='オフライン：キャッシュデータを使用中';
-      setTimeout(()=>{document.getElementById('loading-screen').style.display='none';resolve();},500);
-    },10000);
-    function cleanup(){
-      clearTimeout(timer);
-      delete window[cbName];
-      if(script.parentNode)script.parentNode.removeChild(script);
-    }
-    window[cbName]=function(data){
-      cleanup();
-      document.getElementById('loading-bar').style.width='80%';
-      if(data.residents)residents=data.residents.map(normalizeResident);
-      if(data.homes)homes=data.homes;
-      localStorage.setItem('residents_v3',JSON.stringify(residents));
-      localStorage.setItem('homes_v1',JSON.stringify(homes));
-      document.getElementById('loading-msg').textContent='読み込み完了！';
-      document.getElementById('loading-bar').style.width='100%';
-      setTimeout(()=>{document.getElementById('loading-screen').style.display='none';resolve();},500);
-    };
-    script.src=GAS_URL+'?action=load&callback='+cbName;
-    document.head.appendChild(script);
-  });
-}
-
-async function saveToGAS(){
-  if(!GAS_URL)return;
-  try{
-    // no-corsモードでPOST送信（レスポンスは受け取れないがデータは届く）
-    await fetch(GAS_URL,{
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({action:'save',residents,homes})
-    });
-    console.log('GAS保存送信完了');
-  }catch(e){
-    console.warn('GAS保存エラー:',e);
-  }
-}
 
 function normalizeMD(v){return v&&parseInt(v)?String(parseInt(v)).padStart(2,'0'):v;}
 function normalizeResident(r){
@@ -343,13 +289,9 @@ function markSaved(){
   toast.classList.add('show');
   setTimeout(()=>toast.classList.remove('show'),2200);
 }
-async function saveData(){
+function saveData(){
   localStorage.setItem('residents_v3',JSON.stringify(residents));
   localStorage.setItem('homes_v1',JSON.stringify(homes));
-  // GASにも保存
-  const btn=document.getElementById('save-btn');
-  if(btn){btn.innerHTML='<i class="ti ti-loader" style="animation:spin 1s linear infinite"></i> 保存中...';}
-  await saveToGAS();
   markSaved();
 }
 
@@ -413,6 +355,86 @@ function toggleAlert(header){
   const isClosed=body.classList.toggle('closed');
   toggle.classList.toggle('closed', isClosed);
 }
+
+// ── エクスポート・インポート ──
+function exportData(){
+  const data={
+    version:1,
+    exportedAt:new Date().toISOString(),
+    residents,
+    homes
+  };
+  const json=JSON.stringify(data,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const now=new Date();
+  const dateStr=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  a.href=url;
+  a.download=`受給者証データ_${dateStr}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event){
+  const file=event.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      const data=JSON.parse(e.target.result);
+      // バージョン確認
+      if(!data.residents||!data.homes){
+        alert('このファイルは受給者証管理システムのデータではありません。');
+        return;
+      }
+      const count=data.residents.length;
+      if(!confirm(`${count}名のデータを読み込みます。
+現在のデータは上書きされます。よろしいですか？`)){
+        event.target.value='';
+        return;
+      }
+      residents=data.residents.map(normalizeResident);
+      homes=data.homes||[];
+      saveResidents();
+      saveHomes();
+      renderList();
+      renderAlerts();
+      // 保存済みに
+      hasUnsaved=false;
+      document.getElementById('unsaved-bar').classList.remove('show');
+      document.getElementById('save-btn').style.display='none';
+      // 成功トースト
+      const toast=document.getElementById('toast');
+      toast.innerHTML='<i class="ti ti-check"></i> インポート完了（'+count+'名）';
+      toast.classList.add('show');
+      setTimeout(()=>{
+        toast.classList.remove('show');
+        toast.innerHTML='<i class="ti ti-check"></i> 保存しました';
+      },2500);
+    }catch(err){
+      alert('ファイルの読み込みに失敗しました。正しいJSONファイルを選択してください。');
+    }
+    event.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ── 設定ドロップダウン ──
+function toggleDropdown(){
+  const menu=document.getElementById('dropdown-menu');
+  menu.classList.toggle('show');
+}
+function closeDropdown(){
+  document.getElementById('dropdown-menu').classList.remove('show');
+}
+// ドロップダウン外クリックで閉じる
+document.addEventListener('click',function(e){
+  const dd=document.getElementById('settings-dropdown');
+  if(dd&&!dd.contains(e.target)){
+    closeDropdown();
+  }
+});
 
 function setSort(key){currentSort=key;document.querySelectorAll('.btn-sort').forEach(b=>b.classList.remove('active'));document.getElementById('sort-'+key).classList.add('active');renderList();}
 function chip(days){
@@ -923,11 +945,6 @@ function saveHomeEdit(){
 // ── 初期化 ──
 setSort('home');
 renderAlerts();
-// GASからデータ読み込み（非同期）
-loadFromGAS().then(()=>{
-  setSort('home');
-  renderAlerts();
-});
 </script>
 </body>
 </html>
