@@ -616,6 +616,8 @@ function drawerHtml(r){
         <div class="d-item"><label>負担割合</label><p>${r.futan_wari?r.futan_wari+'割':'—'}</p></div>
         <div class="d-item"><label>上限月額</label><p>${r.futan_limit?Number(r.futan_limit).toLocaleString()+'円':'—'}</p></div>
         ${dp(r.futan_s_y,r.futan_s_m,r.futan_s_d,r.futan_end_y,r.futan_end_m,r.futan_end_d,'適用期間')}
+        <div class="d-item"><label>食事提供加算対象者</label><p>${r.shokuji_taisho||'—'}</p></div>
+        ${dp(r.shokuji_s_y,r.shokuji_s_m,r.shokuji_s_d,r.shokuji_end_y,r.shokuji_end_m,r.shokuji_end_d,'食事提供加算 適用期間')}
       </div>
     </div>
     ${r.memo?`<div class="d-section">
@@ -894,6 +896,10 @@ function buildForm(r){
       <div class="field"><label>負担上限月額（円）</label><input type="number" id="f_futan_limit" value="${v('futan_limit')||'0'}" placeholder="0"></div>
     </div>
     <div class="field" style="margin-bottom:4px"><label>適用期間</label></div>${periodInputs('futan',r)}
+    <div class="field-row2" style="margin-bottom:8px;margin-top:10px">
+      <div class="field"><label>食事提供加算対象者</label><select id="f_shokuji_taisho">${['','該当','非該当'].map(o=>`<option value="${o}"${v('shokuji_taisho')===o?' selected':''}>${o||'— 選択 —'}</option>`).join('')}</select></div>
+    </div>
+    <div class="field" style="margin-bottom:4px"><label>食事提供加算 適用期間</label></div>${periodInputs('shokuji',r)}
     <div class="section-title"><i class="ti ti-notes" style="font-size:15px"></i>備考</div>
     <div class="field">
       <label>メモ <span style="font-size:11px;color:#999">（受給者証の送付先など・100文字以内）</span></label>
@@ -966,6 +972,9 @@ function saveResident(){
     futan_wari:getVal('f_futan_wari'),futan_limit:getVal('f_futan_limit'),
     futan_s_y:getVal('f_futan_s_y'),futan_s_m:md('f_futan_s_m'),futan_s_d:md('f_futan_s_d'),
     futan_end_y:getVal('f_futan_end_y'),futan_end_m:md('f_futan_end_m'),futan_end_d:md('f_futan_end_d'),
+    shokuji_taisho:getVal('f_shokuji_taisho'),
+    shokuji_s_y:getVal('f_shokuji_s_y'),shokuji_s_m:md('f_shokuji_s_m'),shokuji_s_d:md('f_shokuji_s_d'),
+    shokuji_end_y:getVal('f_shokuji_end_y'),shokuji_end_m:md('f_shokuji_end_m'),shokuji_end_d:md('f_shokuji_end_d'),
     memo:getVal('f_memo').slice(0,100),
   };
   const rn=normalizeResident(r);
